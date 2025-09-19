@@ -117,7 +117,7 @@ const App: React.FC = () => {
                             <img 
                                 src={analysisResult.imageUrl} 
                                 alt={analysisResult.ebikeName}
-                                className="w-20 h-20 object-cover rounded-lg border border-gray-600"
+                                className="w-20 h-20 object-cover rounded-lg border border-gray-600 bg-white p-1"
                                 onError={(e) => {
                                     e.currentTarget.style.display = 'none';
                                 }}
