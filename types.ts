@@ -33,6 +33,8 @@ export interface EbikeAnalysisResult {
   isUnlocked?: boolean;
   unlockedSpecs?: UnlockSpecifications;
   bikeId?: string; // For database results, store the bike ID for unlock functionality
+  imageUrl?: string; // URL to e-bike thumbnail/image
+  manufacturerUrl?: string; // URL to manufacturer website
 }
 
 export interface BikeOption {

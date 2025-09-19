@@ -111,8 +111,34 @@ const App: React.FC = () => {
     return (
         <div className="space-y-6">
             <div className="bg-gray-800 p-6 rounded-lg shadow-inner">
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-3xl font-bold text-white"><span className="text-sky-400">{analysisResult.ebikeName}</span></h2>
+                <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-start gap-4">
+                        {analysisResult.imageUrl && (
+                            <img 
+                                src={analysisResult.imageUrl} 
+                                alt={analysisResult.ebikeName}
+                                className="w-20 h-20 object-cover rounded-lg border border-gray-600"
+                                onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                }}
+                            />
+                        )}
+                        <div>
+                            <h2 className="text-3xl font-bold text-white">
+                                <span className="text-sky-400">{analysisResult.ebikeName}</span>
+                            </h2>
+                            {analysisResult.manufacturerUrl && (
+                                <a 
+                                    href={analysisResult.manufacturerUrl} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-sm text-blue-400 hover:text-blue-300 underline mt-1 block"
+                                >
+                                    View on Manufacturer Website →
+                                </a>
+                            )}
+                        </div>
+                    </div>
                     {analysisResult.canUnlock && (
                         <div className="flex items-center gap-3">
                             <label className="text-sm text-gray-300">E-bike Unlocked</label>

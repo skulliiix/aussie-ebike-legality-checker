@@ -82,6 +82,8 @@ MANDATORY DATA COLLECTION:
 3. LOCK/UNLOCK: Can it be unlocked to higher power (500W+)?
 4. CLASSIFICATION: "Electrically power-assisted cycles" OR "Power-assisted pedal cycles"
 5. AUSTRALIAN COMPLIANCE: Which states is it legal in?
+6. IMAGE URL: Find a product image/thumbnail of the e-bike
+7. MANUFACTURER URL: Official manufacturer website URL
 
 SEARCH PRIORITIES:
 1. Manufacturer website ([brand].com.au or [brand].com)
@@ -115,7 +117,9 @@ REQUIRED JSON FORMAT:
     "throttleRestricted": true/false,
     "compliance": "string",
     "notes": "string"
-  }
+  },
+  "imageUrl": "URL to e-bike product image/thumbnail",
+  "manufacturerUrl": "URL to manufacturer website"
 }
 
 Be thorough. If insufficient data found, set found: false. Respond ONLY with valid JSON.`;
