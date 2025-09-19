@@ -27,6 +27,8 @@ export interface DatabaseEbike {
   unlocked_legal_in_states?: string[];
   unlocked_compliance?: string;
   unlocked_notes?: string;
+  image_url?: string;
+  manufacturer_url?: string;
   source: 'manual' | 'gemini';
   search_count: number;
   created_at: string;
@@ -58,6 +60,8 @@ export interface SearchableBike {
   unlockedLegalInStates?: string[];
   unlockedCompliance?: string;
   unlockedNotes?: string;
+  imageUrl?: string;
+  manufacturerUrl?: string;
 }
 
 class DatabaseService {
@@ -167,6 +171,8 @@ class DatabaseService {
         compliance: 'To be verified',
         legal_in_australia: true,
         notes: `Added from AI analysis. Source: ${analysis.wattage.source}`,
+        image_url: analysis.imageUrl,
+        manufacturer_url: analysis.manufacturerUrl,
         source: 'gemini',
         search_count: 0
       };
@@ -230,7 +236,9 @@ class DatabaseService {
       unlockedMaxSpeed: db.unlocked_max_speed,
       unlockedLegalInStates: db.unlocked_legal_in_states,
       unlockedCompliance: db.unlocked_compliance,
-      unlockedNotes: db.unlocked_notes
+      unlockedNotes: db.unlocked_notes,
+      imageUrl: db.image_url,
+      manufacturerUrl: db.manufacturer_url
     };
   }
 

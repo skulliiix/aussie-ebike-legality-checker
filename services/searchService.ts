@@ -50,7 +50,9 @@ function convertBikeToAnalysisResult(bike: SearchableBike, isUnlocked: boolean =
     dataSource: 'database' as const,
     canUnlock: bike.canUnlock || false,
     isUnlocked: isUnlocked,
-    bikeId: bike.id
+    bikeId: bike.id,
+    imageUrl: bike.imageUrl,
+    manufacturerUrl: bike.manufacturerUrl
   };
 
   if (bike.canUnlock && bike.unlockedMotorPower) {
