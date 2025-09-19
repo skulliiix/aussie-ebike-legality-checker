@@ -3,13 +3,17 @@ import type { EbikeAnalysisResult } from '../types';
 import { determineLegality, getAllStateCodes } from './lawService';
 import { databaseService } from './databaseService';
 
-// Get API key from environment with proper fallback
+// Get API key from environment with proper Vite handling
 function getGeminiApiKey(): string | null {
-  // Try different possible environment variable names
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
-                import.meta.env.GEMINI_API_KEY ||
-                process.env.GEMINI_API_KEY ||
-                process.env.API_KEY;
+  // In Vite, environment variables are accessed via import.meta.env
+  // Only variables prefixed with VITE_ are exposed to the client
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  
+  console.log('🔍 Checking for Gemini API key...');
+  console.log('Environment check:', {
+    hasViteGeminiKey: !!import.meta.env.VITE_GEMINI_API_KEY,
+    keyLength: apiKey ? apiKey.length : 0
+  });
   
   return apiKey || null;
 }
@@ -78,11 +82,12 @@ function initializeGemini(): { client: GoogleGenAI; model: any } | null {
 
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
-    console.warn('🚫 Gemini API key not found. AI search will be unavailable.');
+    console.warn('🚫 Gemini API key not found. Make sure VITE_GEMINI_API_KEY is set in your .env file.');
     return null;
   }
 
   try {
+    console.log('🚀 Initializing Gemini AI...');
     aiClient = new GoogleGenAI({ apiKey });
     model = aiClient.getGenerativeModel({ 
       model: "gemini-1.5-flash",
@@ -131,7 +136,7 @@ export async function analyzeEbikeLegality(query: string): Promise<EbikeAnalysis
   // Check if Gemini is available
   const gemini = initializeGemini();
   if (!gemini) {
-    throw new Error('Gemini AI is not available. Please set up your GEMINI_API_KEY environment variable.');
+    throw new Error('Gemini AI is not available. Please set up your VITE_GEMINI_API_KEY environment variable in your .env file.');
   }
 
   try {
@@ -178,7 +183,7 @@ export async function analyzeEbikeLegality(query: string): Promise<EbikeAnalysis
     
     // Provide helpful error messages
     if (error.message?.includes('API_KEY_INVALID') || error.message?.includes('API key')) {
-      throw new Error('Invalid Gemini API key. Please check your GEMINI_API_KEY environment variable.');
+      throw new Error('Invalid Gemini API key. Please check your VITE_GEMINI_API_KEY in your .env file.');
     } else if (error.message?.includes('quota') || error.message?.includes('limit')) {
       throw new Error('Gemini API quota exceeded. Please check your Google AI Studio usage.');
     } else {
@@ -189,7 +194,9 @@ export async function analyzeEbikeLegality(query: string): Promise<EbikeAnalysis
 
 // Check if Gemini is available
 export function isGeminiAvailable(): boolean {
-  return getGeminiApiKey() !== null;
+  const apiKey = getGeminiApiKey();
+  console.log('🔍 Checking Gemini availability:', !!apiKey);
+  return !!apiKey;
 }
 
 // Legacy function for backward compatibility
