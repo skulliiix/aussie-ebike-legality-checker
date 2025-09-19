@@ -3,11 +3,16 @@ import type { EbikeAnalysisResult } from '../types';
 import { determineLegality, getAllStateCodes } from './lawService';
 import { databaseService } from './databaseService';
 
-if (!process.env.API_KEY) {
-  throw new Error("API_KEY environment variable not set");
+// Get API key from environment with proper fallback
+function getGeminiApiKey(): string | null {
+  // Try different possible environment variable names
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
+                import.meta.env.GEMINI_API_KEY ||
+                process.env.GEMINI_API_KEY ||
+                process.env.API_KEY;
+  
+  return apiKey || null;
 }
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const responseSchema = {
   type: Type.OBJECT,
@@ -62,16 +67,41 @@ const responseSchema = {
   required: ['ebikeName', 'found', 'wattage', 'hasThrottle', 'isPedalAssist', 'canUnlock']
 };
 
-const model = ai.getGenerativeModel({ 
-  model: "gemini-1.5-flash",
-  generationConfig: {
-    responseSchema: responseSchema,
-    temperature: 0.1,
-    topK: 1,
-    topP: 0.8,
-    maxOutputTokens: 1024,
+// Initialize AI client lazily
+let aiClient: GoogleGenAI | null = null;
+let model: any = null;
+
+function initializeGemini(): { client: GoogleGenAI; model: any } | null {
+  if (aiClient && model) {
+    return { client: aiClient, model };
   }
-});
+
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    console.warn('🚫 Gemini API key not found. AI search will be unavailable.');
+    return null;
+  }
+
+  try {
+    aiClient = new GoogleGenAI({ apiKey });
+    model = aiClient.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      generationConfig: {
+        responseSchema: responseSchema,
+        temperature: 0.1,
+        topK: 1,
+        topP: 0.8,
+        maxOutputTokens: 1024,
+      }
+    });
+
+    console.log('✅ Gemini AI initialized successfully');
+    return { client: aiClient, model };
+  } catch (error) {
+    console.error('❌ Failed to initialize Gemini AI:', error);
+    return null;
+  }
+}
 
 const prompt = `You are an expert e-bike analyst specializing in Australian e-bike regulations. Your task is to analyze e-bike specifications and determine their legality across Australian states.
 
@@ -98,8 +128,14 @@ If you cannot find the specific model, set found: false and provide the best ava
 export async function analyzeEbikeLegality(query: string): Promise<EbikeAnalysisResult> {
   console.log(`🤖 GEMINI ANALYSIS: "${query}"`);
   
+  // Check if Gemini is available
+  const gemini = initializeGemini();
+  if (!gemini) {
+    throw new Error('Gemini AI is not available. Please set up your GEMINI_API_KEY environment variable.');
+  }
+
   try {
-    const result = await model.generateContent(prompt.replace('{query}', query));
+    const result = await gemini.model.generateContent(prompt.replace('{query}', query));
     const response = await result.response;
     const analysis = JSON.parse(response.text());
     
@@ -139,8 +175,21 @@ export async function analyzeEbikeLegality(query: string): Promise<EbikeAnalysis
     
   } catch (error) {
     console.error('❌ Gemini analysis failed:', error);
-    throw new Error(`Failed to analyze e-bike: ${error.message}`);
+    
+    // Provide helpful error messages
+    if (error.message?.includes('API_KEY_INVALID') || error.message?.includes('API key')) {
+      throw new Error('Invalid Gemini API key. Please check your GEMINI_API_KEY environment variable.');
+    } else if (error.message?.includes('quota') || error.message?.includes('limit')) {
+      throw new Error('Gemini API quota exceeded. Please check your Google AI Studio usage.');
+    } else {
+      throw new Error(`AI analysis failed: ${error.message || 'Unknown error'}`);
+    }
   }
+}
+
+// Check if Gemini is available
+export function isGeminiAvailable(): boolean {
+  return getGeminiApiKey() !== null;
 }
 
 // Legacy function for backward compatibility
