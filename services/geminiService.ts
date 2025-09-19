@@ -15,40 +15,60 @@ function getGeminiApiKey(): string | null {
   return apiKey || null;
 }
 
-// Simple mock implementation for now to fix linter errors
-// This will be replaced with correct implementation once we figure out the API
+// Call Gemini API using fetch (more compatible approach)
 async function callGeminiAPI(prompt: string): Promise<any> {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
     throw new Error('Gemini API key not found. Make sure VITE_GEMINI_API_KEY is set in your .env file.');
   }
 
-  // For now, return a mock response to avoid linter errors
-  // TODO: Replace with actual Gemini API call
-  console.log('🤖 Mock Gemini call for:', prompt.substring(0, 100) + '...');
+  console.log('🚀 Calling Gemini API...');
   
-  // Return a mock response that matches our expected structure
-  return {
-    ebikeName: "Unknown E-bike",
-    found: false,
-    wattage: {
-      value: 250,
-      source: "mock",
-      confidence: "low"
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
     },
-    hasThrottle: {
-      value: false,
-      source: "mock",
-      confidence: "low"
-    },
-    isPedalAssist: {
-      value: true,
-      source: "mock",
-      confidence: "low"
-    },
-    canUnlock: false,
-    unlockedSpecs: null
-  };
+    body: JSON.stringify({
+      contents: [{
+        parts: [{
+          text: prompt
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.1,
+        topK: 1,
+        topP: 0.8,
+        maxOutputTokens: 1024,
+      }
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('❌ Gemini API error:', response.status, errorText);
+    throw new Error(`Gemini API error: ${response.status} ${errorText}`);
+  }
+
+  const data = await response.json();
+  console.log('🔍 Gemini API response:', data);
+  
+  if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+    throw new Error('Invalid response format from Gemini API');
+  }
+
+  const text = data.candidates[0].content.parts[0].text;
+  console.log('🔍 Raw Gemini response text:', text);
+  
+  try {
+    // Clean up the response text (remove any markdown formatting)
+    const cleanText = text.replace(/```json\s*|\s*```/g, '').trim();
+    return JSON.parse(cleanText);
+  } catch (parseError) {
+    console.error('❌ Failed to parse Gemini response as JSON:', parseError);
+    console.error('❌ Raw response:', text);
+    throw new Error('Invalid response format from Gemini AI');
+  }
 }
 
 const prompt = `You are an expert e-bike analyst specializing in Australian e-bike regulations. Your task is to analyze e-bike specifications and determine their legality across Australian states.
@@ -100,8 +120,6 @@ export async function analyzeEbikeLegality(query: string): Promise<EbikeAnalysis
   console.log(`🤖 GEMINI ANALYSIS: "${query}"`);
   
   try {
-    // For now, we'll use the mock API call
-    // TODO: Replace with actual Gemini API integration
     const analysis = await callGeminiAPI(prompt.replace('{query}', query));
     
     console.log(`✅ Gemini analysis complete for: ${analysis.ebikeName}`);
