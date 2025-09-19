@@ -40,7 +40,7 @@ async function callGeminiAPI(prompt: string): Promise<any> {
         temperature: 0.1,
         topK: 1,
         topP: 0.8,
-        maxOutputTokens: 2048,
+        maxOutputTokens: 4096,
       }
     })
   });
@@ -72,50 +72,53 @@ async function callGeminiAPI(prompt: string): Promise<any> {
   }
 }
 
-const prompt = `You are an expert e-bike analyst specializing in Australian e-bike regulations. Your task is to analyze e-bike specifications and determine their legality across Australian states.
-
-IMPORTANT AUSTRALIAN E-BIKE LAWS:
-- NSW: Up to 500W with throttle allowed (throttle limited to 6km/h for electrically power-assisted cycles)
-- VIC: Up to 250W with throttle allowed (throttle limited to 6km/h "walk mode")
-- QLD, WA, TAS: Any throttle = motorbike requiring license and registration
-- SA, NT, ACT: Up to 200W with throttle allowed, 250W+ throttle illegal
+const prompt = `Analyze this e-bike with HIGH FOCUS on specific criteria. Prioritize manufacturer websites first.
 
 SEARCH FOR: "{query}"
 
-Please analyze this e-bike and provide a JSON response with the following structure:
+MANDATORY DATA COLLECTION:
+1. MOTOR POWER: Continuous rated power in watts (locked/unlocked if applicable)
+2. THROTTLE: Does it have throttle? Speed limits when locked/unlocked?
+3. LOCK/UNLOCK: Can it be unlocked to higher power (500W+)?
+4. CLASSIFICATION: "Electrically power-assisted cycles" OR "Power-assisted pedal cycles"
+5. AUSTRALIAN COMPLIANCE: Which states is it legal in?
+
+SEARCH PRIORITIES:
+1. Manufacturer website ([brand].com.au or [brand].com)
+2. Official manuals/specifications
+3. Authorized dealers
+4. Reputable review sites
+
+REQUIRED JSON FORMAT:
 {
-  "ebikeName": "Full brand and model name",
+  "ebikeName": "Exact brand and model name",
   "found": true/false,
   "wattage": {
-    "value": number (motor power in watts),
-    "source": "URL or source where found",
+    "value": number,
+    "source": "URL",
     "confidence": "high/medium/low"
   },
   "hasThrottle": {
     "value": true/false,
-    "source": "URL or source where found", 
+    "source": "URL",
     "confidence": "high/medium/low"
   },
   "isPedalAssist": {
     "value": true/false,
-    "source": "URL or source where found",
+    "source": "URL",
     "confidence": "high/medium/low"
   },
-  "canUnlock": false,
-  "unlockedSpecs": null
+  "canUnlock": true/false,
+  "unlockedSpecs": {
+    "motorPower": number,
+    "throttleMaxSpeed": number,
+    "throttleRestricted": true/false,
+    "compliance": "string",
+    "notes": "string"
+  }
 }
 
-Find the exact e-bike model and provide:
-1. Full model name (brand + model)
-2. Motor power in watts (continuous rated power)
-3. Whether it has a throttle (can propel without pedaling)
-4. Whether it's primarily pedal-assist
-
-Look for official specifications, manufacturer websites, and reliable e-bike databases. Be precise about power ratings and throttle capabilities.
-
-If you cannot find the specific model, set found: false and provide the best available information.
-
-Respond ONLY with valid JSON.`;
+Be thorough. If insufficient data found, set found: false. Respond ONLY with valid JSON.`;
 
 export async function analyzeEbikeLegality(query: string): Promise<EbikeAnalysisResult> {
   console.log(`🤖 GEMINI ANALYSIS: "${query}"`);
