@@ -1,0 +1,5 @@
+
+{
+  "name": "Aussie E-Bike Legality Checker",
+  "description": "An application to check if an e-bike model is legal in the different states of Australia based on its engine power and other specifications, using AI to fetch and analyze the data."
+}

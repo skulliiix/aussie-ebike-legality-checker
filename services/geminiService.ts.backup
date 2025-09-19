@@ -1,0 +1,170 @@
+import { GoogleGenAI, Type } from "@google/genai";
+import type { EbikeAnalysisResult } from '../types';
+import { determineLegality, getAllStateCodes, getLawDatabase } from './lawService';
+
+if (!process.env.API_KEY) {
+  throw new Error("API_KEY environment variable not set");
+}
+
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+const responseSchema = {
+  type: Type.OBJECT,
+  properties: {
+    ebikeName: { type: Type.STRING, description: 'The full name of the e-bike model found.' },
+    found: { type: Type.BOOLEAN, description: 'Whether the e-bike specifications could be found.' },
+    wattage: { 
+      type: Type.OBJECT,
+      properties: {
+        value: { type: Type.NUMBER, description: 'The continuous motor power in watts.' },
+        source: { type: Type.STRING, description: 'URL or source where this specification was found.' },
+        confidence: { type: Type.STRING, enum: ['high', 'medium', 'low'], description: 'Confidence level in the accuracy of this specification.' }
+      },
+      required: ['value', 'source', 'confidence']
+    },
+    hasThrottle: { 
+      type: Type.OBJECT,
+      properties: {
+        value: { type: Type.BOOLEAN, description: 'Does the e-bike have a throttle that can propel it without pedaling?' },
+        source: { type: Type.STRING, description: 'URL or source where this specification was found.' },
+        confidence: { type: Type.STRING, enum: ['high', 'medium', 'low'], description: 'Confidence level in the accuracy of this specification.' }
+      },
+      required: ['value', 'source', 'confidence']
+    },
+    isPedalAssist: { 
+      type: Type.OBJECT,
+      properties: {
+        value: { type: Type.BOOLEAN, description: 'Is the motor primarily a pedal-assist type?' },
+        source: { type: Type.STRING, description: 'URL or source where this specification was found.' },
+        confidence: { type: Type.STRING, enum: ['high', 'medium', 'low'], description: 'Confidence level in the accuracy of this specification.' }
+      },
+      required: ['value', 'source', 'confidence']
+    },
+  },
+  required: ['ebikeName', 'found', 'wattage', 'hasThrottle', 'isPedalAssist']
+};
+
+
+export async function analyzeEbikeLegality(ebikeName: string): Promise<EbikeAnalysisResult> {
+  const prompt = `
+    You are an expert on Australian e-bike laws and e-bike specifications. A user has provided an e-bike name: "${ebikeName}". Your task is to determine if this e-bike is legal to ride in each Australian state and territory and classify its usage type.
+
+    **CRITICAL: Be extremely thorough and accurate when determining specifications. Search multiple sources and cross-reference information.**
+
+    **Step 1: Find Technical Specifications (PRIORITIZE OFFICIAL SOURCES)**
+    Search for the following specifications with high accuracy, following this priority order:
+    
+    **PRIORITY 1 - Official Manufacturer Sources (HIGHEST CONFIDENCE):**
+    - Official manufacturer website (e.g., specialized.com, trekbikes.com, giant-bicycles.com, bosch-ebike.com, shimano.com, yamaha-motor.com, etc.)
+    - Official product manuals and technical specifications
+    - Official press releases and product announcements
+    
+    **Common E-bike Manufacturer Websites:**
+    - Specialized: specialized.com
+    - Trek: trekbikes.com
+    - Giant: giant-bicycles.com
+    - Bosch: bosch-ebike.com
+    - Shimano: shimano.com
+    - Yamaha: yamaha-motor.com
+    - Rad Power Bikes: radpowerbikes.com
+    - Aventon: aventon.com
+    - Juiced Bikes: juicedbikes.com
+    - Pedego: pedegoelectricbikes.com
+    - And many others - always look for the official manufacturer domain
+    
+    **PRIORITY 2 - Authorized Retailers (MEDIUM CONFIDENCE):**
+    - Authorized dealer websites
+    - Official distributor websites
+    
+    **PRIORITY 3 - E-commerce and Reviews (LOWER CONFIDENCE):**
+    - Major e-commerce sites (Amazon, eBay, bike-specific retailers)
+    - Professional bike review websites
+    - User forums and communities
+    
+    **Search for these specifications:**
+    1. **Motor Power (Wattage)**: Find the CONTINUOUS motor power in watts (not peak power). Always check official manufacturer specs first.
+    2. **Throttle**: Determine if the e-bike has a throttle that can propel the bike WITHOUT pedaling. This is crucial for legality. Look for:
+       - Twist throttle on handlebars
+       - Thumb throttle
+       - Push-button throttle
+       - Any mechanism that can move the bike without pedaling
+    3. **Pedal Assist**: Determine if the motor is primarily pedal-assist (only works when pedaling) or can work independently.
+
+    **IMPORTANT FOR THROTTLE DETECTION:**
+    - If the bike has NO throttle mechanism, set hasThrottle to false
+    - If the bike has ANY form of throttle that can move it without pedaling, set hasThrottle to true
+    - Be very careful - many e-bikes are pedal-assist only and have NO throttle
+    - Look for specific mentions of "throttle", "twist grip", "thumb throttle", or "push-to-go" features
+
+    **Step 2: Source Information and Confidence Assessment**
+    For each specification, provide:
+    - The actual value found
+    - A source URL or description of where you found this information
+    - Your confidence level based on this hierarchy:
+      * **HIGH**: Official manufacturer website, official product manual, or official press release
+      * **MEDIUM**: Authorized dealer/distributor website, professional review site
+      * **LOW**: E-commerce sites, user forums, or unofficial sources
+    
+    **IMPORTANT FOR SOURCE LINKS:**
+    - Only provide URLs that you can verify are currently accessible
+    - If you cannot find a reliable URL, provide a descriptive source instead (e.g., "Official Specialized website product page", "Trek Bikes official specifications")
+    - Avoid providing URLs that may result in 404 errors
+    - Prefer descriptive source names over potentially broken URLs
+    
+    **Search Process:**
+    1. First, search for the official manufacturer website (e.g., if it's a Specialized bike, go to specialized.com)
+    2. Look for the specific model in their product catalog
+    3. Check official technical specifications and product manuals
+    4. If information is missing from official sources, then search authorized retailers
+    5. Only use e-commerce sites as a last resort for missing information
+    6. Always indicate which source type you used and why
+
+    **Step 3: Focus on Specifications Only**
+    Your task is to find accurate e-bike specifications. The legality analysis will be handled automatically using official Australian law databases.
+
+    **Response Requirements:**
+    - ALWAYS start with official manufacturer websites first
+    - If you cannot find reliable specifications from official sources, set 'found' to false
+    - For source URLs: Only provide URLs you can verify are accessible, otherwise use descriptive source names
+    - Be conservative with confidence levels - only use 'high' when you have official manufacturer documentation
+    - Double-check throttle specifications as this is critical for accuracy
+    - If using e-commerce sites, clearly indicate this in the source and use 'low' confidence
+    - Cross-reference information from multiple sources when possible
+    - If official sources contradict e-commerce sources, always trust the official source
+    - Examples of good source descriptions: "Official Specialized website", "Trek Bikes product specifications", "Giant Bicycles official catalog"
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: responseSchema,
+      },
+    });
+
+    const jsonString = response.text.trim();
+    const result = JSON.parse(jsonString);
+    
+    // Simple validation
+    if (result && result.ebikeName && result.found !== undefined) {
+      // Calculate legality using our law database
+      const stateCodes = getAllStateCodes();
+      const legality = stateCodes.map(stateCode => 
+        determineLegality(result.wattage, result.hasThrottle, result.isPedalAssist, stateCode)
+      );
+      
+      return {
+        ...result,
+        legality
+      } as EbikeAnalysisResult;
+    } else {
+      throw new Error("Invalid JSON structure received from API.");
+    }
+
+  } catch (error) {
+    console.error("Error calling Gemini API:", error);
+    throw new Error("Failed to get a valid response from the AI. Please try again.");
+  }
+}
