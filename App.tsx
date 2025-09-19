@@ -11,19 +11,6 @@ const BoltIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
-// Debug component to show environment variables
-const EnvDebug: React.FC = () => {
-  if (process.env.NODE_ENV === 'production') return null;
-  
-  return (
-    <div className="fixed top-4 right-4 bg-gray-800 text-white p-3 rounded-lg text-xs max-w-sm z-50">
-      <div className="font-bold mb-2">🔍 Environment Debug</div>
-      <div>Gemini API Key: {import.meta.env.VITE_GEMINI_API_KEY ? `✅ Found (${import.meta.env.VITE_GEMINI_API_KEY.substring(0, 10)}...)` : '❌ Missing'}</div>
-      <div>Supabase URL: {import.meta.env.VITE_SUPABASE_URL ? '✅ Found' : '❌ Missing'}</div>
-      <div>Supabase Key: {import.meta.env.VITE_SUPABASE_ANON_KEY ? '✅ Found' : '❌ Missing'}</div>
-    </div>
-  );
-};
 
 const App: React.FC = () => {
   const [ebikeInput, setEbikeInput] = useState<string>('');
@@ -211,7 +198,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white font-sans p-4 sm:p-6 lg:p-8">
-      <EnvDebug />
       <div className="max-w-6xl mx-auto">
         <header className="text-center mb-8">
             <div className="flex items-center justify-center gap-3">
